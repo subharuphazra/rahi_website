@@ -1,0 +1,123 @@
+{
+  "theme_mode": "toggle",
+  "archetype": "Swiss & High-Contrast Editorial",
+  "typography": {
+    "english": {
+      "headings": "Playfair Display",
+      "body": "IBM Plex Sans"
+    },
+    "bengali": {
+      "headings": "Noto Serif Bengali",
+      "body": "Hind Siliguri"
+    },
+    "scale": {
+      "h1": "text-5xl sm:text-6xl tracking-tight leading-none",
+      "h2": "text-3xl sm:text-4xl tracking-tight leading-none",
+      "h3": "text-xl sm:text-2xl",
+      "body": "text-base sm:text-lg leading-relaxed",
+      "labels": "text-xs uppercase tracking-[0.2em]"
+    },
+    "instructions": "Mix serif headings with sans-serif body. The language toggle should update the CSS font-family variables so that Bengali text uses Noto/Hind and English uses Playfair/Plex."
+  },
+  "colors": {
+    "light": {
+      "background": "#FAFAFA",
+      "foreground": "#0F0F11",
+      "surface": "#FFFFFF",
+      "border": "#E5E5E5",
+      "primary": "#D92D20",
+      "primary_foreground": "#FFFFFF",
+      "muted": "#F3F4F6",
+      "muted_foreground": "#6B7280"
+    },
+    "dark": {
+      "background": "#0F0F11",
+      "foreground": "#FAFAFA",
+      "surface": "#1A1A1D",
+      "border": "#27272A",
+      "primary": "#EF4444",
+      "primary_foreground": "#FFFFFF",
+      "muted": "#1F2937",
+      "muted_foreground": "#9CA3AF"
+    },
+    "instructions": "Use high-contrast monochrome as the base (black text on stark white, or white on deep void). The 'Rahi Red' (primary) is strictly for active states, 'Breaking News' badges, and key CTAs. Do not use gradients."
+  },
+  "visual_enhancers": {
+    "borders": "1px crisp solid borders for separating news articles (Technical/Grid look).",
+    "shadows": "Zero shadows on news cards. Flat, editorial look. Use subtle shadow-sm on Admin Dashboard floating menus.",
+    "radius": "rounded-none for article images (sharp, print-like), rounded-sm for buttons.",
+    "textures": "Add a very subtle SVG noise overlay on the hero section background to emulate newsprint."
+  },
+  "grids": {
+    "homepage_hero": "Bento Grid Protocol Mode A (Asymmetrical). 1 massive 'Hero' spanning col-span-8, and 2 smaller stories spanning col-span-4.",
+    "category_grid": "Grid Layout Technical Rules. CSS Grid with strict 1px border-b and border-r separators.",
+    "admin_dashboard": "High Density Grid Protocol Mode B. Strict sidebar and dense data tables."
+  },
+  "layouts": {
+    "header": "Sticky Top Header, Glassmorphism (Crystal variant: backdrop-blur-xl bg-white/80 or black/60) with 1px bottom border. Contains Logo, Language Toggle (EN/BN), Category links, Login CTA.",
+    "homepage": "Editorial layout. Avoid 'Card' containers. Use raw images, massive headlines, and thin divider lines (border-t border-border) between articles.",
+    "article_detail": "Centered narrow column (max-w-3xl) for reading comfort. Large hero image at the top (max-h-[60vh] object-cover). Generous spacing (py-12). Meta info (author, date, likes) packed tightly in a border-y block.",
+    "admin_layout": "Sidebar navigation (col-span-2) + Main content area (col-span-10). Use Shadcn components heavily here (Data Table, Forms).",
+    "footer": "Massive footer padding (py-24), large brand typography (text-[8vw]), grid for links."
+  },
+  "motion": {
+    "hover": "Images scale slightly (hover:scale-105 transition-transform duration-500). Article titles change color to Primary Red on hover.",
+    "page": "Smooth scrolling using Lenis (if applicable). Staggered fade-in for news lists."
+  },
+  "accessibility": {
+    "contrast": "Strict APCA/WCAG AA compliance. Use text-shadow on text placed over images.",
+    "focus": "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+    "testing": "All interactive elements must have data-testid attributes (e.g., data-testid='lang-toggle-btn')."
+  },
+  "component_patterns": {
+    "news_card": "Cardless. Do not use Shadcn Card for news. Raw HTML: div > Image, H3, p, span. Separated by borders.",
+    "admin_forms": "Use Shadcn Input, Select, Button, Textarea. Keep them styled minimally (sharp edges).",
+    "buttons": "Sharp edges (rounded-none or rounded-sm). Solid primary for CTAs, outline for secondary.",
+    "interactions": "Like/Bookmark buttons should use SVG icons with active fill states. Comments section should be a clean list below the article."
+  },
+  "image_urls": {
+    "hero_featured": {
+      "url": "https://images.pexels.com/photos/35743103/pexels-photo-35743103.jpeg",
+      "description": "Press conference, journalists covering a major event (India)."
+    },
+    "category_business": {
+      "url": "https://images.pexels.com/photos/33217250/pexels-photo-33217250.jpeg",
+      "description": "Corporate office building against blue sky."
+    },
+    "category_sports": {
+      "url": "https://images.pexels.com/photos/31723741/pexels-photo-31723741.jpeg",
+      "description": "Cricket match moment in stadium."
+    },
+    "category_elections": {
+      "url": "https://images.pexels.com/photos/5926271/pexels-photo-5926271.jpeg",
+      "description": "Young man voting at a polling station."
+    },
+    "category_science": {
+      "url": "https://images.pexels.com/photos/30547598/pexels-photo-30547598.jpeg",
+      "description": "Abstract digital circuit board visualization."
+    },
+    "category_entertainment": {
+      "url": "https://images.unsplash.com/photo-1622927254841-21f273c7a6e9",
+      "description": "Vintage Bollywood film posters on a wall."
+    }
+  },
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur).",
+    "You MUST NOT apply universal transition. Eg: transition: all. Always add transitions for specific interactive elements.",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; } in the css file.",
+    "Use Lucide-react for icons.",
+    "Use Shadcn components for complex interactions (Admin forms, tabs, dropdowns).",
+    "NEVER use placeholder URLs. Use the provided image URLs.",
+    "Ensure the language toggle (English/Bengali) dynamically switches both the content strings and the font families."
+  ],
+  "instructions_to_main_agent": {
+    "setup": "1. Initialize Tailwind with the provided color variables. 2. Import Playfair Display, IBM Plex Sans, Noto Serif Bengali, and Hind Siliguri from Google Fonts.",
+    "layout_execution": "Build a heavily grid-based editorial homepage. Use raw HTML/Tailwind for news feeds (cardless design). Use Shadcn UI for the Admin Dashboard.",
+    "bilingual": "Implement a React context or state for i18n to toggle between EN and BN. Map the font families conditionally based on the active language.",
+    "components": "Create reusable 'ArticleSnippet' components that accept image, headline, and excerpt, and apply the typography rules."
+  }
+}

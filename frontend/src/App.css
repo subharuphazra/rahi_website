@@ -1,0 +1,11 @@
+/* Rahi Bangla — editorial minimalism */
+.App {
+  min-height: 100vh;
+}
+
+.masthead-serif {
+  font-family: var(--font-heading);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+}
