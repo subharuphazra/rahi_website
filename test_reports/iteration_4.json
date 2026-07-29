@@ -1,0 +1,34 @@
+{
+  "summary": "Backend-only testing of Phase 4 features (Categories/Breaking/Sidebar/Layouts CRUD + article category validation + backward-compat). Wrote 27 pytest cases in /app/backend/tests/backend_test_phase4.py; all 27 PASS against local backend http://localhost:8001 (public preview /api returns 404 due to Kubernetes ingress issue, as noted by main agent).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/categories", "issue": "slugify() falls back to a random UUID when the input contains no word chars (e.g. slug='!!!'), so an 'invalid slug' never returns 400 — the endpoint silently creates a category with a random slug. The `if not slug` guard at server.py:1052 is unreachable. Consider validating the input slug format (e.g. regex ^[a-z0-9-]+$) BEFORE slugifying, or return 400 when the sanitized slug differs from the input."},
+      {"endpoint": "GET /api/sidebar-news", "issue": "The right-side auto-topup uses `skip_offset = remaining` which is `limit - len(curated)`. When there are curated items this skips a variable, non-obvious number of latest articles, and can accidentally repeat/miss items. Consider a deterministic bias like skip=limit or a set-difference over full latest list."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/backend_test_phase4.py",
+    "/app/test_reports/pytest/phase4.xml"
+  ],
+  "action_items": [
+    "Optional: harden slug validation in POST /api/categories so purely-symbolic slugs return 400 instead of being coerced to a random uuid.",
+    "Optional: revisit right-sidebar auto-topup skip logic to avoid duplicate/skip surprises when curated items exist."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 1328 lines — recommend splitting into modules (auth, articles, categories, breaking, sidebar, layouts, newsletter) for maintainability.",
+    "get_current_admin returns 401 (not 403) for logged-in non-admin users because get_current_user throws 401 for anon; non-admin path in get_current_admin (line 119) does return 403. Verified both branches: reader→403, anon→401. OK.",
+    "CategoryUpdate lets order be updated but not slug; that is intentional and safe (slug is referenced by articles).",
+    "Layouts endpoint doesn't validate block shape (List[Any]); any JSON is accepted. Acceptable for MVP but consider a stricter schema (i,x,y,w,h,type) to guard the FE.",
+    "Sidebar list returns non-active curated items excluded (good), but PUT accepts `active` flip; ensure FE curator surfaces inactive items via /api/admin/sidebar-news."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test_phase4.py"],
+  "success_rate": {"backend": "100% (27/27 phase4 tests)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "Admin rahipatrika@gmail.com / Thanksc#2u (verified working). Reader accounts are freshly registered per session.",
+  "seed_data_creation": "None persisted — tests create then delete their own categories/articles/breaking/sidebar/layouts entries. Test tag: TEST_<uuid> prefix on text_en/title_en for traceability.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file /app/backend/tests/backend_test_phase4.py must be run with env BACKEND_TEST_URL=http://localhost:8001 while the public ingress remains broken. It cleans up after itself. Previous phase test files (backend_test.py, backend_test_phase2.py, backend_test_phase3_comments.py) also exist; run them together for full regression.",
+  "rca of the issue": "N/A — no functional bugs blocking. The single initial test failure was a test-side assertion issue (auth/me returns {user:{...}} not flat) — fixed in the test file."
+}
