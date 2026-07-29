@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from "react";
+import React, { createContext, useContext, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/contexts/AuthContext";
 
@@ -20,11 +20,16 @@ export const CategoriesProvider = ({ children }) => {
     queryFn: async () => (await api.get("/categories")).data,
     staleTime: 60_000,
   });
-  const items = data?.items && data.items.length > 0 ? data.items : FALLBACK;
-  const slugs = items.map((c) => c.slug);
-  const byslug = Object.fromEntries(items.map((c) => [c.slug, c]));
+
+  const value = useMemo(() => {
+    const items = data?.items && data.items.length > 0 ? data.items : FALLBACK;
+    const slugs = items.map((c) => c.slug);
+    const byslug = Object.fromEntries(items.map((c) => [c.slug, c]));
+    return { items, slugs, byslug, isLoading, refetch };
+  }, [data, isLoading, refetch]);
+
   return (
-    <CategoriesContext.Provider value={{ items, slugs, byslug, isLoading, refetch }}>
+    <CategoriesContext.Provider value={value}>
       {children}
     </CategoriesContext.Provider>
   );

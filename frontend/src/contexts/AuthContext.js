@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import axios from "axios";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -19,7 +19,11 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data } = await api.get("/auth/me");
       setUser(data.user);
-    } catch {
+    } catch (err) {
+      // 401 for anonymous visitors is expected; anything else worth logging
+      if (err?.response?.status && err.response.status !== 401) {
+        console.warn("auth/me failed:", err.response.status, err.response.data);
+      }
       setUser(false);
     } finally {
       setLoading(false);
@@ -30,30 +34,33 @@ export const AuthProvider = ({ children }) => {
     fetchMe();
   }, [fetchMe]);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     const { data } = await api.post("/auth/login", { email, password });
     setUser(data.user);
     return data.user;
-  };
+  }, []);
 
-  const register = async (email, password, name) => {
+  const register = useCallback(async (email, password, name) => {
     const { data } = await api.post("/auth/register", { email, password, name });
     setUser(data.user);
     return data.user;
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await api.post("/auth/logout");
-    } catch (_) {}
+    } catch (err) {
+      console.warn("logout request failed:", err);
+    }
     setUser(false);
-  };
+  }, []);
 
-  return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser: fetchMe }}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({ user, loading, login, register, logout, refreshUser: fetchMe }),
+    [user, loading, login, register, logout, fetchMe]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {

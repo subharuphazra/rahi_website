@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import DOMPurify from "dompurify";
 import { api } from "@/contexts/AuthContext";
 import { pick, useLang } from "@/contexts/LanguageContext";
 import { useCategories, catLabel } from "@/contexts/CategoriesContext";
@@ -35,6 +36,16 @@ export default function ArticlePage() {
 
   const [commentBody, setCommentBody] = useState("");
 
+  const a = data?.article;
+  const title = a ? pick(a, "title", lang) : "";
+  const excerpt = a ? pick(a, "excerpt", lang) : "";
+  const body = a ? pick(a, "body", lang) : "";
+  const isHtmlBody = /^\s*</.test(body || "");
+  const sanitizedBody = useMemo(
+    () => (isHtmlBody ? DOMPurify.sanitize(body, { USE_PROFILES: { html: true } }) : ""),
+    [body, isHtmlBody]
+  );
+
   if (isLoading) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-24 text-muted-foreground" data-testid="article-loading">
@@ -45,11 +56,6 @@ export default function ArticlePage() {
   if (!data?.article) {
     return <div className="mx-auto max-w-3xl px-4 py-24">Article not found.</div>;
   }
-
-  const a = data.article;
-  const title = pick(a, "title", lang);
-  const excerpt = pick(a, "excerpt", lang);
-  const body = pick(a, "body", lang);
 
   const toggleLike = async () => {
     if (!user) {
@@ -90,7 +96,10 @@ export default function ArticlePage() {
   const share = async () => {
     const url = window.location.href;
     if (navigator.share) {
-      try { await navigator.share({ title, url }); return; } catch {}
+      try { await navigator.share({ title, url }); return; }
+      catch (err) {
+        if (err?.name !== "AbortError") console.warn("share failed:", err);
+      }
     }
     navigator.clipboard.writeText(url);
     toast.success("Link copied to clipboard.");
@@ -184,16 +193,16 @@ export default function ArticlePage() {
       />
       <ArticleJsonLd article={a} canonical={typeof window !== "undefined" ? window.location.href : ""} />
 
-      {/^\s*</.test(body) ? (
+      {isHtmlBody ? (
         <div
           className="prose prose-lg max-w-none prose-headings:font-heading prose-p:leading-relaxed prose-img:my-6 prose-a:text-rahi-red"
           data-testid="article-body"
-          dangerouslySetInnerHTML={{ __html: body }}
+          dangerouslySetInnerHTML={{ __html: sanitizedBody }}
         />
       ) : (
         <div className="prose-article max-w-none" data-testid="article-body">
           {body.split(/\n{2,}/).map((para, i) => (
-            <p key={i}>{para}</p>
+            <p key={`p-${i}-${para.slice(0, 12)}`}>{para}</p>
           ))}
         </div>
       )}

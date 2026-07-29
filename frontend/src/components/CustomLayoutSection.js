@@ -20,7 +20,7 @@ export default function CustomLayoutSection({ layoutKey, articles, fallbackRende
   });
 
   const blocks = data?.blocks || [];
-  const arts = articles || [];
+  const arts = useMemo(() => articles || [], [articles]);
 
   const artMap = useMemo(() => Object.fromEntries(arts.map((a) => [a.id, a])), [arts]);
   const usedIds = new Set(blocks.map((b) => b.articleId).filter(Boolean));
