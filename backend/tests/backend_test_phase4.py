@@ -16,6 +16,7 @@ ADMIN_EMAIL = "rahipatrika@gmail.com"
 ADMIN_PASSWORD = "Thanksc#2u"
 
 TAG = f"TEST_{uuid.uuid4().hex[:6]}"
+TAG_SLUG = f"test-{uuid.uuid4().hex[:6]}"  # slugs must match ^[a-z0-9-]+$
 
 
 # ---------- Fixtures ----------
@@ -86,7 +87,7 @@ class TestCategories:
             assert s in slugs, f"missing default slug {s}"
 
     def test_create_category_admin(self, admin):
-        slug = f"{TAG}_cat"
+        slug = f"{TAG_SLUG}-cat"
         r = admin.post(f"{API}/categories", json={"slug": slug, "name_en": "TestCat", "name_bn": "টেস্ট", "order": 99})
         assert r.status_code == 200, r.text
         body = r.json()
@@ -104,11 +105,11 @@ class TestCategories:
         assert r.status_code == 400
 
     def test_non_admin_create_rejected(self, reader):
-        r = reader.post(f"{API}/categories", json={"slug": f"{TAG}_x", "name_en": "X"})
+        r = reader.post(f"{API}/categories", json={"slug": f"{TAG_SLUG}-x", "name_en": "X"})
         assert r.status_code in (401, 403), r.status_code
 
     def test_anon_create_rejected(self, anon):
-        r = anon.post(f"{API}/categories", json={"slug": f"{TAG}_y", "name_en": "Y"})
+        r = anon.post(f"{API}/categories", json={"slug": f"{TAG_SLUG}-y", "name_en": "Y"})
         assert r.status_code in (401, 403)
 
     def test_update_category(self, admin):

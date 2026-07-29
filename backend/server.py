@@ -1101,6 +1101,8 @@ class BreakingIn(BaseModel):
     link: str = ""
     active: bool = True
     order: int = 0
+    start_at: Optional[str] = None  # ISO datetime; when null → live immediately
+    end_at: Optional[str] = None    # ISO datetime; when null → stays until deactivated
 
 class BreakingUpdate(BaseModel):
     text_en: Optional[str] = None
@@ -1108,17 +1110,59 @@ class BreakingUpdate(BaseModel):
     link: Optional[str] = None
     active: Optional[bool] = None
     order: Optional[int] = None
+    start_at: Optional[str] = None
+    end_at: Optional[str] = None
+
+
+def _parse_iso(s: Optional[str]) -> Optional[datetime]:
+    if not s:
+        return None
+    try:
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except Exception:
+        return None
+
+
+def _breaking_is_live_now(item: dict, now: Optional[datetime] = None) -> bool:
+    if not item.get("active"):
+        return False
+    now = now or datetime.now(timezone.utc)
+    start = _parse_iso(item.get("start_at"))
+    end = _parse_iso(item.get("end_at"))
+    if start and now < start:
+        return False
+    if end and now >= end:
+        return False
+    return True
 
 
 @api_router.get("/breaking")
 async def list_breaking(all_items: bool = False):
-    q = {} if all_items else {"active": True}
-    items = await db.breaking.find(q, {"_id": 0}).sort("order", 1).to_list(200)
-    return {"items": items}
+    if all_items:
+        items = await db.breaking.find({}, {"_id": 0}).sort("order", 1).to_list(200)
+        return {"items": items}
+    # Return only items currently live (active + within schedule window)
+    now = datetime.now(timezone.utc)
+    items = await db.breaking.find({"active": True}, {"_id": 0}).sort("order", 1).to_list(500)
+    live = [i for i in items if _breaking_is_live_now(i, now)]
+    return {"items": live}
 
 
 @api_router.post("/breaking")
 async def create_breaking(payload: BreakingIn, user: dict = Depends(get_current_admin)):
+    # Validate schedule fields if provided
+    if payload.start_at and not _parse_iso(payload.start_at):
+        raise HTTPException(status_code=400, detail="Invalid start_at (use ISO 8601)")
+    if payload.end_at and not _parse_iso(payload.end_at):
+        raise HTTPException(status_code=400, detail="Invalid end_at (use ISO 8601)")
+    if payload.start_at and payload.end_at:
+        s = _parse_iso(payload.start_at)
+        e = _parse_iso(payload.end_at)
+        if s and e and e <= s:
+            raise HTTPException(status_code=400, detail="end_at must be after start_at")
     doc = {
         "id": str(uuid.uuid4()),
         "text_en": payload.text_en.strip(),
@@ -1126,6 +1170,8 @@ async def create_breaking(payload: BreakingIn, user: dict = Depends(get_current_
         "link": (payload.link or "").strip(),
         "active": payload.active,
         "order": payload.order,
+        "start_at": payload.start_at or None,
+        "end_at": payload.end_at or None,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.breaking.insert_one(doc)
@@ -1138,6 +1184,14 @@ async def update_breaking(item_id: str, payload: BreakingUpdate, user: dict = De
     update = {k: v for k, v in payload.model_dump().items() if v is not None}
     if not update:
         raise HTTPException(status_code=400, detail="Nothing to update")
+    if "start_at" in update and update["start_at"] and not _parse_iso(update["start_at"]):
+        raise HTTPException(status_code=400, detail="Invalid start_at")
+    if "end_at" in update and update["end_at"] and not _parse_iso(update["end_at"]):
+        raise HTTPException(status_code=400, detail="Invalid end_at")
+    # Empty string clears the field
+    for k in ("start_at", "end_at"):
+        if k in update and update[k] == "":
+            update[k] = None
     result = await db.breaking.update_one({"id": item_id}, {"$set": update})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Breaking item not found")
@@ -1322,6 +1376,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# -----------------------------
+# Health endpoints (platform ingress discovery)
+# -----------------------------
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "service": "backend",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+@app.get("/health/ready")
+async def readiness_check():
+    try:
+        await db.command("ping")
+        return {"ready": True, "database": "connected"}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Database not ready: {str(e)}")
+
+@app.get("/health/live")
+async def liveness_check():
+    return {"alive": True}
 
 
 @app.on_event("shutdown")
