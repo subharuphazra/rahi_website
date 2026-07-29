@@ -1048,9 +1048,10 @@ async def list_categories():
 
 @api_router.post("/categories")
 async def create_category(payload: CategoryIn, user: dict = Depends(get_current_admin)):
-    slug = slugify(payload.slug)
-    if not slug:
-        raise HTTPException(status_code=400, detail="Invalid slug")
+    raw = (payload.slug or "").strip().lower()
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,39}", raw):
+        raise HTTPException(status_code=400, detail="Invalid slug (use a-z, 0-9, hyphen)")
+    slug = raw
     if await db.categories.find_one({"slug": slug}):
         raise HTTPException(status_code=400, detail="Category slug already exists")
     doc = {
