@@ -55,7 +55,21 @@ db = client[os.environ['DB_NAME']]
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="Rahi Bangla API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://rahipatrika.in",
+        "https://www.rahipatrika.in",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 api_router = APIRouter(prefix="/api")
 
 
