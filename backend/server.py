@@ -10,6 +10,7 @@ import secrets
 import logging
 import asyncio
 import smtplib
+import resend
 from email.message import EmailMessage
 import bcrypt
 import jwt
@@ -17,8 +18,6 @@ import requests
 import httpx
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Any
-import smtplib
-from email.message import EmailMessage
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, UploadFile, File, Form, Depends, Query, Header
 from starlette.middleware.cors import CORSMiddleware
 from fastapi.responses import Response as FastResponse, PlainTextResponse
@@ -245,48 +244,36 @@ async def send_email(
     reply_to: Optional[str] = None
 ) -> Optional[str]:
 
-    smtp_host = os.environ.get("SMTP_HOST")
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-    smtp_user = os.environ.get("SMTP_USER")
-    smtp_password = os.environ.get("SMTP_PASSWORD")
+    resend_api_key = os.environ.get("RESEND_API_KEY")
     from_name = os.environ.get("EMAIL_FROM_NAME", "Rahi Bangla")
 
-    if not smtp_host or not smtp_user or not smtp_password:
-        logger.error("SMTP configuration is missing")
+    if not resend_api_key:
+        logger.error("RESEND_API_KEY missing — email not sent")
         return None
 
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = f"{from_name} <{smtp_user}>"
-    msg["To"] = to
+    resend.api_key = resend_api_key
+
+    params = {
+        "from": f"{from_name} <noreply@rahipatrika.in>",
+        "to": [to],
+        "subject": subject,
+        "html": html,
+    }
 
     if reply_to:
-        msg["Reply-To"] = reply_to
+        params["reply_to"] = reply_to
 
-    msg.set_content(
-        "Please open this email in an HTML-compatible email client."
-    )
-    msg.add_alternative(html, subtype="html")
-
-    def send_smtp():
-      with smtplib.SMTP(
-        smtp_host,
-        smtp_port,
-        timeout=15
-    ) as smtp:
-        smtp.ehlo()
-        smtp.starttls()
-        smtp.ehlo()
-        smtp.login(smtp_user, smtp_password)
-        smtp.send_message(msg)
     try:
-        await asyncio.to_thread(send_smtp)
+        result = await resend.Emails.send(params)
 
-        logger.info(f"Email sent successfully to {to}")
-        return "sent"
+        email_id = result.get("id") if isinstance(result, dict) else None
 
-    except Exception:
-        logger.exception("Email sending failed")
+        logger.info(f"Email sent successfully to {to}, id={email_id}")
+
+        return email_id
+
+    except Exception as e:
+        logger.exception(f"Resend email failed: {e}")
         return None
 
 def _email_shell(title: str, body_html: str, footer_html: str = "") -> str:
