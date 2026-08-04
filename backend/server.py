@@ -984,12 +984,10 @@ import socket
 
 @api_router.get("/debug/smtp")
 async def debug_smtp():
-    host = os.environ.get("SMTP_HOST", "mail.rahipatrika.in")
-    port = int(os.environ.get("SMTP_PORT", "465"))
+    host = "103.224.246.193"
+    port = 587
 
     try:
-        ip = socket.gethostbyname(host)
-
         sock = socket.create_connection(
             (host, port),
             timeout=10
@@ -1000,7 +998,6 @@ async def debug_smtp():
             "ok": True,
             "host": host,
             "port": port,
-            "ip": ip,
             "message": "SMTP port is reachable"
         }
 
