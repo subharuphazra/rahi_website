@@ -8,6 +8,9 @@ import re
 import uuid
 import secrets
 import logging
+import asyncio
+import smtplib
+from email.message import EmailMessage
 import bcrypt
 import jwt
 import requests
@@ -249,31 +252,47 @@ async def send_email(
     from_name = os.environ.get("EMAIL_FROM_NAME", "Rahi Bangla")
 
     if not smtp_host or not smtp_user or not smtp_password:
-        logger.warning("SMTP configuration missing — skipping email send")
+        logger.error("SMTP configuration is missing")
         return None
 
-    try:
-        msg = EmailMessage()
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = f"{from_name} <{smtp_user}>"
+    msg["To"] = to
 
-        msg["Subject"] = subject
-        msg["From"] = f"{from_name} <{smtp_user}>"
-        msg["To"] = to
+    if reply_to:
+        msg["Reply-To"] = reply_to
 
-        if reply_to:
-            msg["Reply-To"] = reply_to
+    msg.set_content(
+        "Please open this email in an HTML-compatible email client."
+    )
+    msg.add_alternative(html, subtype="html")
 
-        msg.set_content("Please view this email in an HTML-compatible email client.")
-        msg.add_alternative(html, subtype="html")
-
-        with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30) as smtp:
+    def send_smtp():
+        with smtplib.SMTP_SSL(
+            smtp_host,
+            smtp_port,
+            timeout=15
+        ) as smtp:
             smtp.login(smtp_user, smtp_password)
             smtp.send_message(msg)
+
+    try:
+        await asyncio.to_thread(send_smtp)
 
         logger.info(f"Email sent successfully to {to}")
         return "sent"
 
-    except Exception as e:
-        logger.error(f"Email send error: {e}")
+    except smtplib.SMTPAuthenticationError:
+        logger.exception("SMTP authentication failed")
+        return None
+
+    except (TimeoutError, OSError):
+        logger.exception("SMTP connection timed out or failed")
+        return None
+
+    except Exception:
+        logger.exception("Email sending failed")
         return None
 
 def _email_shell(title: str, body_html: str, footer_html: str = "") -> str:
