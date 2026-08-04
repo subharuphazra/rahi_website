@@ -246,7 +246,7 @@ async def send_email(
 ) -> Optional[str]:
 
     smtp_host = os.environ.get("SMTP_HOST")
-    smtp_port = int(os.environ.get("SMTP_PORT", "465"))
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
     smtp_user = os.environ.get("SMTP_USER")
     smtp_password = os.environ.get("SMTP_PASSWORD")
     from_name = os.environ.get("EMAIL_FROM_NAME", "Rahi Bangla")
@@ -269,11 +269,14 @@ async def send_email(
     msg.add_alternative(html, subtype="html")
 
     def send_smtp():
-        with smtplib.SMTP_SSL(
+        with smtplib.SMTP(
             smtp_host,
             smtp_port,
             timeout=15
         ) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.ehlo()
             smtp.login(smtp_user, smtp_password)
             smtp.send_message(msg)
 
@@ -282,14 +285,6 @@ async def send_email(
 
         logger.info(f"Email sent successfully to {to}")
         return "sent"
-
-    except smtplib.SMTPAuthenticationError:
-        logger.exception("SMTP authentication failed")
-        return None
-
-    except (TimeoutError, OSError):
-        logger.exception("SMTP connection timed out or failed")
-        return None
 
     except Exception:
         logger.exception("Email sending failed")
