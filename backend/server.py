@@ -14,7 +14,8 @@ import requests
 import httpx
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Any
-
+import smtplib
+from email.message import EmailMessage
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, UploadFile, File, Form, Depends, Query, Header
 from starlette.middleware.cors import CORSMiddleware
 from fastapi.responses import Response as FastResponse, PlainTextResponse
@@ -27,7 +28,6 @@ from pydantic import BaseModel, Field, EmailStr, ConfigDict
 # -----------------------------
 JWT_ALGORITHM = "HS256"
 STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
-EMAIL_BASE_URL = "https://integrations.emergentagent.com"
 APP_NAME = os.environ.get("APP_NAME", "rahi-bangla")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 DEFAULT_CATEGORIES = [
@@ -235,31 +235,46 @@ class BroadcastIn(BaseModel):
 # -----------------------------
 # Email helper
 # -----------------------------
-async def send_email(to: str, subject: str, html: str, reply_to: Optional[str] = None) -> Optional[str]:
-    email_key = os.environ.get("EMERGENT_EMAIL_KEY")
+async def send_email(
+    to: str,
+    subject: str,
+    html: str,
+    reply_to: Optional[str] = None
+) -> Optional[str]:
+
+    smtp_host = os.environ.get("SMTP_HOST")
+    smtp_port = int(os.environ.get("SMTP_PORT", "465"))
+    smtp_user = os.environ.get("SMTP_USER")
+    smtp_password = os.environ.get("SMTP_PASSWORD")
     from_name = os.environ.get("EMAIL_FROM_NAME", "Rahi Bangla")
-    if not email_key:
-        logger.warning("EMERGENT_EMAIL_KEY missing — skipping email send")
+
+    if not smtp_host or not smtp_user or not smtp_password:
+        logger.warning("SMTP configuration missing — skipping email send")
         return None
-    payload = {"to": [to], "subject": subject, "html": html, "from_name": from_name}
-    if reply_to:
-        payload["contact_email"] = reply_to
+
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                f"{EMAIL_BASE_URL}/api/v1/email/send",
-                headers={"X-Email-Key": email_key},
-                json=payload,
-            )
-        resp.raise_for_status()
-        return resp.json().get("id")
-    except httpx.HTTPStatusError as e:
-        logger.error(f"Email send failed {e.response.status_code}: {e.response.text}")
-        return None
+        msg = EmailMessage()
+
+        msg["Subject"] = subject
+        msg["From"] = f"{from_name} <{smtp_user}>"
+        msg["To"] = to
+
+        if reply_to:
+            msg["Reply-To"] = reply_to
+
+        msg.set_content("Please view this email in an HTML-compatible email client.")
+        msg.add_alternative(html, subtype="html")
+
+        with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30) as smtp:
+            smtp.login(smtp_user, smtp_password)
+            smtp.send_message(msg)
+
+        logger.info(f"Email sent successfully to {to}")
+        return "sent"
+
     except Exception as e:
         logger.error(f"Email send error: {e}")
         return None
-
 
 def _email_shell(title: str, body_html: str, footer_html: str = "") -> str:
     return f"""<!doctype html>
