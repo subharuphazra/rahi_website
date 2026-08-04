@@ -269,17 +269,16 @@ async def send_email(
     msg.add_alternative(html, subtype="html")
 
     def send_smtp():
-        with smtplib.SMTP(
-            smtp_host,
-            smtp_port,
-            timeout=15
-        ) as smtp:
-            smtp.ehlo()
-            smtp.starttls()
-            smtp.ehlo()
-            smtp.login(smtp_user, smtp_password)
-            smtp.send_message(msg)
-
+      with smtplib.SMTP(
+        smtp_host,
+        smtp_port,
+        timeout=15
+    ) as smtp:
+        smtp.ehlo()
+        smtp.starttls()
+        smtp.ehlo()
+        smtp.login(smtp_user, smtp_password)
+        smtp.send_message(msg)
     try:
         await asyncio.to_thread(send_smtp)
 
