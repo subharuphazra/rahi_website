@@ -1425,14 +1425,6 @@ async def reset_layout(key: str, user: dict = Depends(get_current_admin)):
 # -----------------------------
 app.include_router(api_router)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[os.environ.get("FRONTEND_URL", "*")],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 
 # -----------------------------
 # Health endpoints (platform ingress discovery)
