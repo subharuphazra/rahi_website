@@ -986,6 +986,37 @@ async def verify_reset_token(token: str):
         raise HTTPException(status_code=404, detail="Link expired")
     return {"email": doc["email"]}
 
+import socket
+
+@api_router.get("/debug/smtp")
+async def debug_smtp():
+    host = os.environ.get("SMTP_HOST", "mail.rahipatrika.in")
+    port = int(os.environ.get("SMTP_PORT", "465"))
+
+    try:
+        ip = socket.gethostbyname(host)
+
+        sock = socket.create_connection(
+            (host, port),
+            timeout=10
+        )
+        sock.close()
+
+        return {
+            "ok": True,
+            "host": host,
+            "port": port,
+            "ip": ip,
+            "message": "SMTP port is reachable"
+        }
+
+    except Exception as e:
+        return {
+            "ok": False,
+            "host": host,
+            "port": port,
+            "error": str(e)
+        }
 
 @api_router.post("/auth/reset-password")
 async def reset_password(payload: ResetPasswordIn):
