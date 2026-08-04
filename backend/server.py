@@ -72,7 +72,6 @@ app.add_middleware(
 
 api_router = APIRouter(prefix="/api")
 
-
 # -----------------------------
 # Auth helpers
 # -----------------------------
@@ -370,6 +369,7 @@ async def startup():
                 "name_en": c["name_en"],
                 "name_bn": c["name_bn"],
                 "order": i,
+                "parent_id": None,
                 "created_at": now_iso,
             })
     await db.categories.create_index("slug", unique=True)
@@ -523,8 +523,18 @@ async def login(payload: LoginIn, response: Response):
 
 @api_router.post("/auth/logout")
 async def logout(response: Response):
-    response.delete_cookie("access_token", path="/")
-    response.delete_cookie("refresh_token", path="/")
+    response.delete_cookie(
+        "access_token",
+        path="/",
+        secure=True,
+        samesite="none",
+    )
+    response.delete_cookie(
+        "refresh_token",
+        path="/",
+        secure=True,
+        samesite="none",
+    )
     return {"ok": True}
 
 
@@ -1047,11 +1057,13 @@ class CategoryIn(BaseModel):
     name_en: str = Field(min_length=1, max_length=60)
     name_bn: str = ""
     order: int = 0
+    parent_id: Optional[str] = None
 
 class CategoryUpdate(BaseModel):
     name_en: Optional[str] = None
     name_bn: Optional[str] = None
     order: Optional[int] = None
+    parent_id: Optional[str] = None
 
 
 @api_router.get("/categories")
@@ -1068,12 +1080,22 @@ async def create_category(payload: CategoryIn, user: dict = Depends(get_current_
     slug = raw
     if await db.categories.find_one({"slug": slug}):
         raise HTTPException(status_code=400, detail="Category slug already exists")
+
+    parent_id = payload.parent_id or None
+    if parent_id:
+        parent = await db.categories.find_one({"id": parent_id})
+        if not parent:
+            raise HTTPException(status_code=400, detail="Parent category not found")
+        if parent.get("parent_id"):
+            raise HTTPException(status_code=400, detail="Cannot nest a subcategory under another subcategory")
+
     doc = {
         "id": str(uuid.uuid4()),
         "slug": slug,
         "name_en": payload.name_en.strip(),
         "name_bn": (payload.name_bn or "").strip(),
         "order": payload.order,
+        "parent_id": parent_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.categories.insert_one(doc)
@@ -1083,7 +1105,24 @@ async def create_category(payload: CategoryIn, user: dict = Depends(get_current_
 
 @api_router.put("/categories/{cat_id}")
 async def update_category(cat_id: str, payload: CategoryUpdate, user: dict = Depends(get_current_admin)):
-    update = {k: v for k, v in payload.model_dump().items() if v is not None}
+    raw = payload.model_dump(exclude_unset=True)
+    update = {}
+    for k, v in raw.items():
+        if k == "parent_id":
+            pid = v or None
+            if pid:
+                if pid == cat_id:
+                    raise HTTPException(status_code=400, detail="A category cannot be its own parent")
+                parent = await db.categories.find_one({"id": pid})
+                if not parent:
+                    raise HTTPException(status_code=400, detail="Parent category not found")
+                if parent.get("parent_id"):
+                    raise HTTPException(status_code=400, detail="Cannot nest a subcategory under another subcategory")
+                if await db.categories.count_documents({"parent_id": cat_id}) > 0:
+                    raise HTTPException(status_code=400, detail="This category already has subcategories, so it can't become one itself")
+            update["parent_id"] = pid
+        elif v is not None:
+            update[k] = v
     if not update:
         raise HTTPException(status_code=400, detail="Nothing to update")
     result = await db.categories.update_one({"id": cat_id}, {"$set": update})
@@ -1102,6 +1141,9 @@ async def delete_category(cat_id: str, user: dict = Depends(get_current_admin)):
     used = await db.articles.count_documents({"category": cat["slug"]})
     if used > 0:
         raise HTTPException(status_code=400, detail=f"Cannot delete: {used} article(s) still use this category")
+    sub_count = await db.categories.count_documents({"parent_id": cat_id})
+    if sub_count > 0:
+        raise HTTPException(status_code=400, detail=f"Cannot delete: {sub_count} subcategory(ies) still reference this category")
     await db.categories.delete_one({"id": cat_id})
     return {"ok": True}
 
@@ -1382,6 +1424,14 @@ async def reset_layout(key: str, user: dict = Depends(get_current_admin)):
 # Register router + middleware
 # -----------------------------
 app.include_router(api_router)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[os.environ.get("FRONTEND_URL", "*")],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # -----------------------------
